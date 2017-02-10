@@ -1,4 +1,4 @@
-Node.js: bitwise-operation
+Node.js: express-permission-rules
 =================
 
 
