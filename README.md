@@ -124,16 +124,22 @@ An access rule can match the following context parameters:
 
 Methods
 -------
-- [setConfig](#setConfig)
+- [setConfig](#setconfig)
 - [authenticate](#authenticate)
-- [permissionDenied](#permissionDenied)
-- [setRules](#setRules)
+- [permissionDenied](#permissiondenied)
+- [setRules](#setrules)
+- [setValidator](#setvalidator)
+- [validator](#validator)
+- [validator.users](#validator)
+- [validator.roles](#validator)
+- [validator.ips](#validator)
+- [validator.expression](#validator)
 - [middleware](#middleware)
-- [ensurePermitted](#ensurePermitted)
-- [ensurePermitted.users](#ensurePermitted)
-- [ensurePermitted.roles](#ensurePermitted)
-- [ensurePermitted.ips](#ensurePermitted)
-- [ensurePermitted.expression](#ensurePermitted)
+- [ensurePermitted](#ensurepermitted)
+- [ensurePermitted.users](#ensurepermitted)
+- [ensurePermitted.roles](#ensurepermitted)
+- [ensurePermitted.ips](#ensurepermitted)
+- [ensurePermitted.expression](#ensurepermitted)
 
 
 ### setConfig()
@@ -216,6 +222,114 @@ ExpressPermissions.setRules([
 ]);
 ```
 
+### setValidator()
+
+This function allows you to add your own validators
+
+```js
+var ExpressPermissions = require('express-permission-rules');
+var router             = express.Router();
+
+ExpressPermissions.setValidator('rights', function(req, rights) {
+    if (!Array.isArray(rights)) {
+        rights = [rights]
+    }
+    if (_.contains(rights, '*')) {
+        return true;
+    }
+    for (var i = 0; i < rights.length; i++) {
+        if (_.contains(req.user.rights, rights[i])) {
+            return true;
+        }
+    }
+    return false;
+});
+
+router.get('/account',
+    ExpressPermissions.ensurePermitted([
+        ['allow', {
+            rights: ['account:view', 'account:update']
+        }],
+        ['deny', {
+            users: '*'
+        }]
+    ]),
+    function(req, res) {
+        res.end("User has right 'account:view' or 'account:update'");
+    });
+
+
+router.delete('/account',
+    ExpressPermissions.ensurePermitted.rights([
+        ['allow', ['account:delete']],
+        ['deny', '*']
+    ]),
+    function(req, res) {
+        res.end("User has right 'account:view' or 'account:update'");
+    });
+```
+
+Validator input parameters depend on the number of parameters requested
+```js
+ExpressPermissions.setValidator('withCallbackFor1Params', function(callback) {
+    var success = false;
+
+    process.nextTick(() => {
+        // ....
+        callback(success);
+    });
+});
+
+ExpressPermissions.setValidator('inlineFor2Params', function(req, ruleValues) {
+    // ....
+    return _.contains(ruleValues, 'admin');
+});
+
+ExpressPermissions.setValidator('withCallbackFor3Params', function(req, ruleValues, callback) {
+    var success = false;
+
+    process.nextTick(() => {
+        // ....
+        callback(_.contains(ruleValues, 'admin'));
+    });
+});
+
+ExpressPermissions.setValidator('withCallbackFor4Params', function(req, res, ruleValues, callback) {
+    var success = false;
+
+    process.nextTick(() => {
+        // ....
+        callback(_.contains(ruleValues, 'admin'));
+    });
+});
+
+ExpressPermissions.setValidator('withCallbacksFor5Params', function(req, res, ruleValues, resolve, reject) {
+    var success = false;
+
+    process.nextTick(() => {
+        try {
+            // ....
+            resolve(_.contains(ruleValues, 'admin'));
+        } catch(err) {
+            reject(err);
+        }
+    });
+});
+```
+
+### validators
+
+This object contains all registered rules and rules can be called inline
+
+```js
+var ExpressPermissions = require('express-permission-rules');
+
+// req.user.roles = ['guest']
+ExpressPermissions.validators.roles(req, ['admin'])
+// => false
+```
+
+
 ### middleware()
 
 This function is used to connect ExpressPermissions to your app.
@@ -249,7 +363,7 @@ router.get('/home',
     ]),
     function(req, res) {
         res.end('ok');
-    });;
+    });
 ```
 
 If you use only one access rule, rules can be simplified:

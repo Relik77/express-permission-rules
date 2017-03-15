@@ -12,6 +12,7 @@ function PermissionError(message) {
 util.inherits(PermissionError, Error);
 
 function PermissionRules() {
+    var self = this;
     this.config = {
         redirectUrl: '/',
         userProperty: 'user',
@@ -19,10 +20,8 @@ function PermissionRules() {
         loginProperty: 'login'
     };
     this.rules = [];
-    this.validator = {
-        users: function (req, res, users) {
-            var self = this;
-
+    this.validators = {
+        users: function (req, users) {
             if (!Array.isArray(users)) users = [users];
             if (users.length == 0) return true;
             if (_.contains(users, '*')) return true; // anyone can access ?
@@ -32,9 +31,7 @@ function PermissionRules() {
 
             return false;
         },
-        roles: function (req, res, roles) {
-            var self = this;
-
+        roles: function (req, roles) {
             if (!Array.isArray(roles)) roles = [roles];
             if (roles.length == 0) return true;
             if (_.contains(roles, '*')) return true;
@@ -54,9 +51,8 @@ function PermissionRules() {
 
             return (role_name !== undefined && _.intersection(roles, role_name).length > 0);
         },
-        ips: function (req, res, ips) {
-            var self = this,
-                clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0] || req.connection.remoteAddress;
+        ips: function (req, ips) {
+            var clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0] || req.connection.remoteAddress;
 
             if (!Array.isArray(ips)) ips = [ips];
             if (ips.length == 0) return true;
@@ -71,7 +67,6 @@ function PermissionRules() {
             });
         },
         expression: function (req, res, expression, callback) {
-            var self = this;
             if (typeof expression == "string") expression = new Function("req", "res", "user", expression);
             if (typeof expression != "function") return callback(null, false);
 
@@ -163,6 +158,61 @@ PermissionRules.prototype.setRules = function (rules) {
         })
         .value();
 };
+PermissionRules.prototype.setValidator = function(name, fct) {
+    var self = this;
+
+    this.validators[name] = fct;
+    PermissionRules.prototype.ensurePermitted[name] = function(rules) {
+        if (!Array.isArray(rules)) rules = [rules];
+
+        return function(req, res, next) {
+            var args = Array.prototype.slice.call(arguments);
+            req = args.shift();
+            next = args.pop();
+            res = args.shift();
+
+            async.detectSeries(rules, function (rule, callback) {
+                var values = _.last(rule);
+
+                authenticate(function () {
+                    switch (self.validators[name].length) {
+                        case 0:
+                        case 1:
+                            return self.validators[name].call(self, callback);
+                        case 2:
+                            return callback(null, !!self.validators[name].call(self, req, values));
+                        case 3:
+                            return self.validators[name].call(self, req, values, callback);
+                        case 4:
+                            return self.validators[name].call(self, req, res, values, callback);
+                        case 5:
+                        default:
+                            return self.validators[name].call(self, req, res, values, function (result) {
+                                callback(null, !!result);
+                            }, function (err) {
+                                callback(err, false);
+                            });
+                    }
+                });
+            }, function (err, rule) {
+                var allowed = _.first(rule);
+
+                if (err) return next(err);
+                if (!rule || allowed == 'allow') return next();
+                self.permissionDenied(req, res, next);
+            });
+
+            function authenticate(callback) {
+                if (req[self.config.userProperty]) return callback();
+
+                self.authenticate(req, res, function(err) {
+                    if (err) return self.permissionDenied(req, res, next);
+                    callback();
+                });
+            }
+        };
+    };
+};
 PermissionRules.prototype.permissionDenied = function (req, res, next) {
     var self = this;
 
@@ -198,22 +248,22 @@ PermissionRules.prototype.middleware = function () {
                         .without('allowed', 'paths', 'methods')
                         .value(),
                     function (key, callback) {
-                        if (typeof self.validator[key] != "function") {
+                        if (typeof self.validators[key] != "function") {
                             return callback(null, true);
                         }
-                        switch (self.validator[key].length) {
+                        switch (self.validators[key].length) {
                             case 0:
                             case 1:
-                                return callback(null, !!self.validator[key].call(self, rule[key]));
+                                return self.validators[key].call(self, callback);
                             case 2:
-                                return self.validator[key].call(self, rule[key], callback);
+                                return callback(null, !!self.validators[key].call(self, req, rule[key]));
                             case 3:
-                                return callback(null, !!self.validator[key].call(self, req, res, rule[key]));
+                                return self.validators[key].call(self, req, rule[key], callback);
                             case 4:
-                                return self.validator[key].call(self, req, res, rule[key], callback);
+                                return self.validators[key].call(self, req, res, rule[key], callback);
                             case 5:
                             default:
-                                return self.validator[key].call(self, req, res, rule[key], function (result) {
+                                return self.validators[key].call(self, req, res, rule[key], function (result) {
                                     callback(null, !!result);
                                 }, function (err) {
                                     callback(err, false);
@@ -276,22 +326,22 @@ PermissionRules.prototype.ensurePermitted = function (rules) {
             authenticate(rule, function () {
                 async.every(_.keys(rule),
                     function (key, callback) {
-                        if (typeof self.validator[key] != "function") {
+                        if (typeof self.validators[key] != "function") {
                             return callback(null, true);
                         }
-                        switch (self.validator[key].length) {
+                        switch (self.validators[key].length) {
                             case 0:
                             case 1:
-                                return callback(null, !!self.validator[key].call(self, rule[key]));
+                                return self.validators[key].call(self, callback);
                             case 2:
-                                return self.validator[key].call(self, rule[key], callback);
+                                return callback(null, !!self.validators[key].call(self, req, rule[key]));
                             case 3:
-                                return callback(null, !!self.validator[key].call(self, req, res, rule[key]));
+                                return self.validators[key].call(self, req, rule[key], callback);
                             case 4:
-                                return self.validator[key].call(self, req, res, rule[key], callback);
+                                return self.validators[key].call(self, req, res, rule[key], callback);
                             case 5:
                             default:
-                                return self.validator[key].call(self, req, res, rule[key], function (result) {
+                                return self.validators[key].call(self, req, res, rule[key], function (result) {
                                     callback(null, !!result);
                                 }, function (err) {
                                     callback(err, false);
@@ -348,7 +398,7 @@ PermissionRules.prototype.ensurePermitted.users = function (rules) {
             var users = _.last(rule);
 
             authenticate(users, function () {
-                callback(null, self.validator.users.call(self, req, res, users));
+                callback(null, self.validators.users.call(self, req, users));
             });
         }, function (err, rule) {
             var allowed = _.first(rule);
@@ -385,7 +435,7 @@ PermissionRules.prototype.ensurePermitted.roles = function (rules) {
             var roles = _.last(rule);
 
             authenticate(roles, function () {
-                callback(null, self.validator.roles.call(self, req, res, roles));
+                callback(null, self.validators.roles.call(self, req, roles));
             });
         }, function (err, rule) {
             var allowed = _.first(rule);
@@ -417,7 +467,7 @@ PermissionRules.prototype.ensurePermitted.ips = function (rules) {
         res = args.shift();
 
         async.detectSeries(rules, function (rule, callback) {
-            callback(null, self.validator.ips.call(self, req, res, _.last(rule)));
+            callback(null, self.validators.ips.call(self, req, _.last(rule)));
         }, function (err, rule) {
             var allowed = _.first(rule);
 
@@ -440,7 +490,7 @@ PermissionRules.prototype.ensurePermitted.expression = function (rules) {
 
         async.detectSeries(rules, function (rule, callback) {
             authenticate(function () {
-                callback(null, self.validator.expression.call(self, req, res, _.last(rule)));
+                callback(null, self.validators.expression.call(self, req, res, _.last(rule)));
             });
         }, function (err, rule) {
             var allowed = _.first(rule);
