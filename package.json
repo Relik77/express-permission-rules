@@ -1,39 +1,51 @@
 {
-  "author": {
-    "name": "Gwenael Walet",
-    "email": "gwenael.walet@yahoo.fr"
-  },
-  "dependencies": {
-    "async": "^2.1.5",
-    "string": "^3.3.3",
-    "underscore": "^1.8.3"
-  },
-  "description": "An Express permission system for ensure user permission on route, inspired by the Access Control Filter on the Yii PHP framework.",
-  "directories": {},
-  "files": [
-    "index.js",
-    "LICENSE"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Relik77/express-permission-rules.git"
-  },
-  "keywords": [
-    "express",
-    "permissions",
-    "authorization",
-    "server"
-  ],
-  "license": "MIT",
-  "main": "index.js",
-  "maintainers": [
-    {
-      "name": "Gwenael Walet",
-      "email": "gwenael.walet@yahoo.fr"
+    "author": {
+        "name": "Gwenael Walet",
+        "email": "gwenael.walet@yahoo.fr"
+    },
+    "scripts": {
+        "build": "tsc"
+    },
+    "dependencies": {
+        "async": "2.6.3",
+        "string": "3.3.3",
+        "underscore": "1.13.0"
+    },
+    "description": "An Express permission system for ensure user permission on route, inspired by the Access Control Filter on the Yii PHP framework.",
+    "directories": {},
+    "files": [
+        "lib/**/*",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Relik77/express-permission-rules.git"
+    },
+    "keywords": [
+        "express",
+        "permissions",
+        "authorization",
+        "server"
+    ],
+    "license": "MIT",
+    "main": "lib/index.js",
+    "maintainers": [
+        {
+            "name": "Gwenael Walet",
+            "email": "gwenael.walet@yahoo.fr"
+        }
+    ],
+    "name": "express-permission-rules",
+    "optionalDependencies": {},
+    "readme": "ERROR: No README data found!",
+    "version": "2.0.0",
+    "devDependencies": {
+        "@types/async": "3.2.6",
+        "@types/express-serve-static-core": "4.17.19",
+        "@types/node": "14.14.37",
+        "@types/string": "0.0.30",
+        "@types/underscore": "1.11.1",
+        "ts-node": "9.1.1",
+        "typescript": "4.2.4"
     }
-  ],
-  "name": "express-permission-rules",
-  "optionalDependencies": {},
-  "readme": "ERROR: No README data found!",
-  "version": "1.1.0"
 }
