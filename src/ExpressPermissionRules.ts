@@ -91,8 +91,8 @@ export abstract class ExpressPermissionRules {
             const permissionRuleAllowed: PermissionRuleAllowed            = {
                 allowed: permissionRules[0] == "allow"
             };
-            if (permissionRule.hasOwnProperty("paths")) {
-                permissionRuleAllowed.paths = _.property("paths")(permissionRule).map((path: string | RegExp) => {
+            if (permissionRule.paths) {
+                permissionRuleAllowed.paths = permissionRule.paths.map((path: string | RegExp) => {
                     if (!(path instanceof RegExp)) {
                         path = new RegExp("^" + S(path).ensureLeft("/").s + "(/|$)", "i");
                     }
