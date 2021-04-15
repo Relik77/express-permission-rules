@@ -8,6 +8,7 @@ export declare namespace expressPermissionRules {
         userProperty?: string;
         rolenameProperty?: string;
         loginProperty?: string;
+        defaultRuleAccess?: "allow" | "deny";
     }
     
     interface PermissionRule {

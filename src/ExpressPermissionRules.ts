@@ -24,10 +24,11 @@ interface PermissionRuleAllowed extends PermissionRule {
 
 export abstract class ExpressPermissionRules {
     private config: PermissionRulesOptions             = {
-        redirectUrl     : "/",
-        userProperty    : "user",
-        rolenameProperty: "role",
-        loginProperty   : "login"
+        redirectUrl      : "/",
+        userProperty     : "user",
+        rolenameProperty : "role",
+        loginProperty    : "login",
+        defaultRuleAccess: "allow"
     };
     private validators: Map<string, ValidatorFct<any>> = new Map<string, ValidatorFct<any>>();
     private rules: Array<PermissionRuleAllowed>        = [];
@@ -155,7 +156,8 @@ export abstract class ExpressPermissionRules {
             }, callback);
         }, (err, rule) => {
             if (err) return next(err);
-            if (!rule || rule.allowed) return next();
+            if (rule && rule.allowed) return next();
+            if (!rule && this.config.defaultRuleAccess == "allow") return next();
             this.permissionDenied(new PermissionError(403), req, res, next);
         });
     }
