@@ -9,13 +9,17 @@ import { ipsValidator }                    from "./validators/ips-validator";
 import { rolesValidator }                  from "./validators/roles-validator";
 import { userValidator }                   from "./validators/users-validator";
 import { ValidatorFct }                    from "./validators/validator.interface";
+import Method = expressPermissionRules.Method;
 import PermissionRule = expressPermissionRules.PermissionRule;
 import PermissionRules = expressPermissionRules.PermissionRules;
 import PermissionRulesOptions = expressPermissionRules.PermissionRulesOptions;
+import PermissionRulesWithPath = expressPermissionRules.PermissionRulesWithPath;
+import PermissionRuleWithPath = expressPermissionRules.PermissionRuleWithPath;
 
 interface PermissionRuleAllowed extends PermissionRule {
     allowed: boolean;
-    paths: Array<RegExp>;
+    paths?: Array<RegExp>;
+    methods?: Array<Method>;
 }
 
 export abstract class ExpressPermissionRules {
@@ -40,8 +44,10 @@ export abstract class ExpressPermissionRules {
         this.setValidator("expression", expressionValidator(this.config.userProperty as string));
     }
     
-    public setRules(rules: Array<PermissionRules>) {
-        this.rules = this.alignRules(rules);
+    public setRules(permissionRulesWithPath: Array<PermissionRulesWithPath>) {
+        this.rules = _.filter(this.alignRules(permissionRulesWithPath), (permissionRuleAllowed: PermissionRuleAllowed) => {
+            return permissionRuleAllowed.paths != undefined && permissionRuleAllowed.paths.length > 0;
+        });
     }
     
     public setValidator(name: string, validatorFct: ValidatorFct<any>) {
@@ -56,11 +62,12 @@ export abstract class ExpressPermissionRules {
         };
     }
     
-    public ensurePermitted(rules: Array<PermissionRules>) {
+    public ensurePermitted(permissionRules: Array<PermissionRules>) {
+        const permissionRuleAllowed = this.alignRules(permissionRules);
         return (req: Request, res: Response, next: NextFunction) => {
             const user = _.property(this.config.userProperty as string)(req);
             if (user) return this.validateRules(this.rules, req, res, next);
-            this.authenticate(req, res, () => this.validateRules(this.alignRules(rules), req, res, next));
+            this.authenticate(req, res, () => this.validateRules(permissionRuleAllowed, req, res, next));
         };
     }
     
@@ -78,30 +85,27 @@ export abstract class ExpressPermissionRules {
         return next(error);
     }
     
-    private alignRules(rules: Array<PermissionRules>): Array<PermissionRuleAllowed> {
-        return _.chain(rules)
-                .map((permissionRules: PermissionRules) => {
-                    const permissionRule: PermissionRule               = permissionRules[1];
-                    const permissionRuleAllowed: PermissionRuleAllowed = {
-                        allowed: permissionRules[0] == "allow",
-                        paths  : permissionRule.paths.map((path: string | RegExp) => {
-                            if (!(path instanceof RegExp)) {
-                                path = new RegExp("^" + S(path).ensureLeft("/").s + "(/|$)", "i");
-                            }
-                            return path;
-                        })
-                    };
+    private alignRules(rules: Array<PermissionRules | PermissionRulesWithPath>): Array<PermissionRuleAllowed> {
+        return rules.map((permissionRules: (PermissionRules | PermissionRulesWithPath)) => {
+            const permissionRule: PermissionRule | PermissionRuleWithPath = permissionRules[1];
+            const permissionRuleAllowed: PermissionRuleAllowed            = {
+                allowed: permissionRules[0] == "allow"
+            };
+            if (permissionRule.hasOwnProperty("paths")) {
+                permissionRuleAllowed.paths = _.property("paths")(permissionRule).map((path: string | RegExp) => {
+                    if (!(path instanceof RegExp)) {
+                        path = new RegExp("^" + S(path).ensureLeft("/").s + "(/|$)", "i");
+                    }
+                    return path;
+                });
+            }
             
-                    const options: any = permissionRule;
-                    delete options["paths"];
-                    Object.assign(permissionRuleAllowed, options);
+            const options: any = permissionRule;
+            delete options["paths"];
+            Object.assign(permissionRuleAllowed, options);
             
-                    return permissionRuleAllowed;
-                })
-                .filter((permissionRuleAllowed: PermissionRuleAllowed) => {
-                    return permissionRuleAllowed.paths.length > 0;
-                })
-                .value();
+            return permissionRuleAllowed;
+        });
     }
     
     private validateRules(rules: Array<PermissionRuleAllowed>, req: Request, res: Response, next: NextFunction) {
@@ -112,10 +116,12 @@ export abstract class ExpressPermissionRules {
                 }
             }
             
-            if (!_.find(rule.paths, (path: RegExp) => {
-                return !!req.originalUrl.match(path);
-            })) {
-                return callback(null, false);
+            if (rule.paths) {
+                if (!_.find(rule.paths, (path: RegExp) => {
+                    return !!req.originalUrl.match(path);
+                })) {
+                    return callback(null, false);
+                }
             }
             
             const keys = _.chain(rule)
@@ -124,7 +130,7 @@ export abstract class ExpressPermissionRules {
                           .value();
             async.every(keys, (key, callback) => {
                 const validator: Function | undefined = this.validators.get(key);
-                const ruleValue                                = _.property(key)(rule);
+                const ruleValue                       = _.property(key)(rule);
                 
                 if (!validator) return callback(null, true);
                 

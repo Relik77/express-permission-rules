@@ -11,13 +11,17 @@ export declare namespace expressPermissionRules {
     }
     
     interface PermissionRule {
-        paths: Array<string | RegExp>;
-        methods?: Array<Method>;
         users?: Array<"*" | "?" | "@" | string>;
         expression?: string | ExpressionFunctionValidator;
         ips?: Array<string>;
         roles?: Array<string>;
     }
     
+    interface PermissionRuleWithPath extends PermissionRule {
+        paths: Array<string | RegExp>;
+        methods?: Array<Method>;
+    }
+    
     type PermissionRules = ["allow" | "deny", PermissionRule];
+    type PermissionRulesWithPath = ["allow" | "deny", PermissionRuleWithPath];
 }
