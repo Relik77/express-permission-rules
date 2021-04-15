@@ -38,6 +38,7 @@ export abstract class ExpressPermissionRules {
         if (options.userProperty) this.config.userProperty = options.userProperty;
         if (options.rolenameProperty) this.config.rolenameProperty = options.rolenameProperty;
         if (options.loginProperty) this.config.loginProperty = options.loginProperty;
+        if (options.defaultRuleAccess) this.config.defaultRuleAccess = options.defaultRuleAccess;
         
         this.setValidator("users", userValidator(this.config.userProperty as string, this.config.loginProperty as string));
         this.setValidator("roles", rolesValidator(this.config.userProperty as string, this.config.rolenameProperty as string));
