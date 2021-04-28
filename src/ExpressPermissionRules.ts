@@ -68,7 +68,7 @@ export abstract class ExpressPermissionRules {
         const permissionRuleAllowed = this.alignRules(permissionRules);
         return (req: Request, res: Response, next: NextFunction) => {
             const user = _.property(this.config.userProperty as string)(req);
-            if (user) return this.validateRules(this.rules, req, res, next);
+            if (user) return this.validateRules(permissionRuleAllowed, req, res, next);
             this.authenticate(req, res, () => this.validateRules(permissionRuleAllowed, req, res, next));
         };
     }
