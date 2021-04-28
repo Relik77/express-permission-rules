@@ -159,7 +159,9 @@ export abstract class ExpressPermissionRules {
             if (err) return next(err);
             if (rule && rule.allowed) return next();
             if (!rule && this.config.defaultRuleAccess == "allow") return next();
-            this.permissionDenied(new PermissionError(403), req, res, next);
+            
+            const user = _.property(this.config.userProperty as string)(req);
+            this.permissionDenied(new PermissionError(user ? 403 : 401), req, res, next);
         });
     }
 }
