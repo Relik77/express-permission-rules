@@ -9,7 +9,7 @@
     "dependencies": {
         "async": "2.6.3",
         "string": "3.3.3",
-        "underscore": "1.13.0"
+        "underscore": "1.13.8"
     },
     "description": "An Express permission system for ensure user permission on route, inspired by the Access Control Filter on the Yii PHP framework.",
     "directories": {},
